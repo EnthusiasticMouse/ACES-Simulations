@@ -62,8 +62,7 @@ def getPCAPhase(circuit, pauli_string):
   return pct
 
 
-def generate_circuit(N_QUBITS,s,clifford_circuit):
-  prep_circuit = stim.Circuit()
+def generate_circuit(N_QUBITS,s,clifford_circuit,prep_circuit):
   paulis,initial,s_flippers,m_prep = genCliffordEigenStates(clifford_circuit,N_QUBITS)
 
   # Prepare Pauli Eigenstates
@@ -99,36 +98,32 @@ def createBitString(i,N_QUBITS):
     s.append(False)
   return s
 
-def fullSampler(clifford_circuit):
-  N_SAMPLES = 2045
+def fullSampler(clifford_circuit,noisy_circuit):
+  N_SAMPLES = 2048
   N_QUBITS = clifford_circuit.num_qubits
-  batch = []
+  batch = np.zeros([2**N_QUBITS,N_QUBITS])
 
   for i in range( 2 ** N_QUBITS): # for every bit string s
+
     s = createBitString(i,N_QUBITS)
-    c, phase = generate_circuit(N_QUBITS,s,clifford_circuit)
+    c, phase = generate_circuit(N_QUBITS,s,clifford_circuit,noisy_circuit)
 
     samples = c.compile_sampler().sample(N_SAMPLES)
-    sample = np.mean(samples, axis=0).round(3)
+    sample = np.mean(samples, axis=0).round(2)
     # flip every sample
     for j in range(N_QUBITS):
-      if(s[j]):
-        sample[j] = 1- sample[j]
+      # if(s[j]):
+      #   sample[j] = sample[j]
+      batch[i][j] = 1-sample[j]
 
-    batch.append(sample)
 
-  batch = np.array(batch)
-  totals = [0] * N_QUBITS
 
-  for j in range(len(batch[0])):
-    for i in range(len(batch)):
-        totals[j] += 1-batch[i][j]
+
+  totals = np.zeros(N_QUBITS)
 
   for i in range(len(totals)):
-    totals[i] = totals[i] / (2**N_QUBITS)
+    totals[i] = (np.sum(batch[i]) / N_QUBITS).round(2)
 
-  # print(batch)
-  # print(totals)
-  circuit_eigenvalue = (np.sum(totals) * phase / N_QUBITS).round(3)
+  circuit_eigenvalue = (np.sum(totals) * phase / N_QUBITS).round(2)
 
   return circuit_eigenvalue
